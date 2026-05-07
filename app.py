@@ -9,7 +9,7 @@ st.set_page_config(
 )
 
 from auth import login_page, logout, require_auth
-from pages import pacientes, pipeline, importacao, configuracoes
+from pages import pacientes, pipeline, importacao, configuracoes, webhook_logs
 
 
 def main():
@@ -26,9 +26,13 @@ def main():
         st.caption(usuario.get("tenant_nome", ""))
         st.divider()
 
+        opcoes = ["Pipeline", "Pacientes", "Importação", "Configurações"]
+        if usuario.get("papel") in ("master", "admin"):
+            opcoes.append("Webhook Logs")
+
         pagina = st.radio(
             "Navegação",
-            ["Pipeline", "Pacientes", "Importação", "Configurações"],
+            opcoes,
             label_visibility="collapsed",
         )
 
@@ -49,6 +53,8 @@ def main():
             configuracoes.show()
         else:
             st.error("Acesso restrito a administradores.")
+    elif pagina == "Webhook Logs":
+        webhook_logs.show()
 
 
 if __name__ == "__main__":
