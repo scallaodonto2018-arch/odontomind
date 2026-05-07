@@ -16,12 +16,16 @@ URLs para configurar no CO (substituir {tenant} por scalla-odonto):
 
 Deploy: uvicorn backend:app --host 0.0.0.0 --port 8000
 """
+import asyncio
 import hashlib
 import json
 import os
 from datetime import datetime
 
-from fastapi import FastAPI, Request
+import httpx
+import websockets as _ws
+from fastapi import FastAPI, Request, WebSocket
+from fastapi.responses import Response, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
@@ -538,3 +542,67 @@ async def _parse(request: Request) -> dict:
         return await request.json()
     except Exception:
         return {}
+
+
+# ----------------------------------------------------------------
+# Proxy reverso para o Streamlit (deve ficar por último)
+# ----------------------------------------------------------------
+
+_ST_HTTP = "http://127.0.0.1:8501"
+_ST_WS   = "ws://127.0.0.1:8501"
+_SKIP_REQ  = {"host", "content-length", "transfer-encoding"}
+_SKIP_RESP = {"transfer-encoding", "content-encoding"}
+
+
+@app.websocket("/{path:path}")
+async def _proxy_ws(websocket: WebSocket, path: str):
+    qs  = websocket.scope.get("query_string", b"").decode()
+    url = f"{_ST_WS}/{path}" + (f"?{qs}" if qs else "")
+    await websocket.accept()
+    try:
+        async with _ws.connect(url) as upstream:
+            async def c2u():
+                try:
+                    async for msg in websocket.iter_bytes():
+                        await upstream.send(msg)
+                except Exception:
+                    pass
+
+            async def u2c():
+                try:
+                    async for msg in upstream:
+                        if isinstance(msg, bytes):
+                            await websocket.send_bytes(msg)
+                        else:
+                            await websocket.send_text(msg)
+                except Exception:
+                    pass
+
+            await asyncio.gather(c2u(), u2c())
+    except Exception:
+        pass
+    finally:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE",
+                                         "OPTIONS", "HEAD", "PATCH"])
+async def _proxy_http(path: str, request: Request):
+    qs      = request.scope.get("query_string", b"").decode()
+    url     = f"{_ST_HTTP}/{path}" + (f"?{qs}" if qs else "")
+    headers = {k: v for k, v in request.headers.items()
+               if k.lower() not in _SKIP_REQ}
+    body    = await request.body()
+
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+        resp = await client.request(request.method, url,
+                                    headers=headers, content=body)
+
+    resp_headers = {k: v for k, v in resp.headers.items()
+                    if k.lower() not in _SKIP_RESP}
+    return Response(content=resp.content,
+                    status_code=resp.status_code,
+                    headers=resp_headers)

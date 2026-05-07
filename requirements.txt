@@ -11,4 +11,5 @@ requests==2.32.3
 plotly==5.22.0
 pydantic==2.10.0
 httpx==0.28.0
+websockets==13.1
 PyYAML==6.0.1
