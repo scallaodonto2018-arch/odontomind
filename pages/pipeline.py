@@ -59,25 +59,41 @@ def _carregar_pipeline(tenant_id: str, periodo_dias: int, origem: str) -> dict:
 
 
 def _metricas_funil(tenant_id: str) -> dict:
-    """Métricas do mês atual."""
+    """Métricas do mês atual — valores dos contratos (Total Líquido)."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             hoje = datetime.now().date()
             inicio_mes = hoje.replace(day=1)
+
+            # Oportunidades ativas e perdidas (funil)
             cur.execute("""
                 SELECT
-                    COUNT(*) FILTER (WHERE status != 'fechado_perdido') as ativos,
-                    COUNT(*) FILTER (WHERE status = 'fechado_ganho') as ganhos,
-                    COUNT(*) FILTER (WHERE status = 'fechado_perdido') as perdidos,
-                    COALESCE(SUM(valor_fechado) FILTER (WHERE status = 'fechado_ganho'), 0) as receita,
-                    COALESCE(AVG(valor_fechado) FILTER (WHERE status = 'fechado_ganho'), 0) as ticket
+                    COUNT(*) FILTER (WHERE status NOT IN ('fechado_ganho','fechado_perdido')) as ativos,
+                    COUNT(*) FILTER (WHERE status = 'fechado_perdido') as perdidos
                 FROM oportunidades
                 WHERE tenant_id=%s AND data_entrada >= %s
             """, (tenant_id, inicio_mes))
-            row = cur.fetchone()
+            r_oport = cur.fetchone()
+
+            # Contratos do mês — Total Líquido e ticket médio
+            cur.execute("""
+                SELECT
+                    COUNT(*) as contratos,
+                    COALESCE(SUM(valor_total), 0) as total_liquido,
+                    COALESCE(AVG(valor_total), 0) as ticket_medio
+                FROM tratamentos
+                WHERE tenant_id=%s
+                  AND tipo = 'contrato'
+                  AND data_emissao >= %s
+            """, (tenant_id, inicio_mes))
+            r_trat = cur.fetchone()
+
     return {
-        "ativos": row[0], "ganhos": row[1], "perdidos": row[2],
-        "receita": row[3], "ticket": row[4],
+        "ativos":        r_oport[0],
+        "perdidos":      r_oport[1],
+        "contratos":     r_trat[0],
+        "total_liquido": r_trat[1],
+        "ticket_medio":  r_trat[2],
     }
 
 
@@ -201,11 +217,11 @@ def show():
     # Métricas do mês
     m = _metricas_funil(tenant_id)
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Ativos", m["ativos"])
-    c2.metric("Fechados (mês)", m["ganhos"])
+    c1.metric("Em andamento", m["ativos"])
+    c2.metric("Contratos (mês)", m["contratos"])
     c3.metric("Perdidos (mês)", m["perdidos"])
-    c4.metric("Receita (mês)", f"R$ {m['receita']:,.0f}")
-    c5.metric("Ticket médio", f"R$ {m['ticket']:,.0f}")
+    c4.metric("Total Líquido (mês)", f"R$ {m['total_liquido']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    c5.metric("Ticket Médio", f"R$ {m['ticket_medio']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
     st.divider()
 
