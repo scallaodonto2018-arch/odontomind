@@ -16,6 +16,7 @@ URLs para configurar no CO (substituir {tenant} por scalla-odonto):
 
 Deploy: uvicorn backend:app --host 0.0.0.0 --port 8000
 """
+import hashlib
 import json
 import os
 from datetime import datetime
@@ -85,13 +86,6 @@ def _dentista(p: dict) -> str | None:
         or p.get("NomeDentista") or p.get("Dentista")
     )
 
-def _ag_id(p: dict) -> str | None:
-    return str_ou_none(
-        p.get("Identificador do Agendamento")
-        or p.get("identificador do agendamento")
-        or p.get("Id") or p.get("id") or p.get("AgendamentoId")
-    )
-
 def _ag_data(p: dict):
     return normalizar_data(
         p.get("Data do Agendamento")
@@ -99,18 +93,38 @@ def _ag_data(p: dict):
         or p.get("DataInicio") or p.get("Data")
     )
 
-def _orc_id(p: dict) -> str | None:
-    return str_ou_none(
-        p.get("Identificador do Orçamento")
-        or p.get("identificador do orçamento")
-        or p.get("Id") or p.get("id") or p.get("OrcamentoId")
-    )
+def _ag_id(p: dict) -> str:
+    """
+    CO não envia ID de agendamento — gera hash de paciente+data+profissional
+    como chave de deduplicação.
+    """
+    pac = str_ou_none(_paciente_id_co(p)) or str_ou_none(_paciente_nome(p)) or "?"
+    data = str(_ag_data(p) or "")
+    prof = str_ou_none(_dentista(p)) or ""
+    raw = f"{pac}_{data}_{prof}"
+    return "ag_" + hashlib.md5(raw.encode()).hexdigest()[:16]
 
 def _orc_valor(p: dict) -> float | None:
     return normalizar_valor(
-        p.get("Valor Total")
-        or p.get("valor total")
+        p.get("Valor Total Liquido do Procedimentos")
+        or p.get("Valor Total Líquido do Procedimentos")
+        or p.get("Valor Total")
         or p.get("ValorTotal") or p.get("Total")
+    )
+
+def _orc_id(p: dict) -> str:
+    """
+    CO não envia ID de orçamento — gera hash de paciente+data_criacao.
+    """
+    pac = str_ou_none(_paciente_id_co(p)) or str_ou_none(_paciente_nome(p)) or "?"
+    data = str_ou_none(p.get("Data de Criação") or p.get("Data de Criacao") or "") or ""
+    raw = f"{pac}_{data}"
+    return "orc_wh_" + hashlib.md5(raw.encode()).hexdigest()[:16]
+
+def _orc_vendedor(p: dict) -> str | None:
+    return str_ou_none(
+        p.get("Vendedor/Negociador")
+        or p.get("Vendedor") or p.get("vendedor")
     )
 
 
@@ -348,18 +362,19 @@ async def wh_cadastro_orcamento(tenant_id: str, request: Request):
         with get_conn() as conn:
             with conn.cursor() as cur:
                 paciente_id = _garantir_paciente(cur, tenant_id, payload)
-                orc_id  = _orc_id(payload)
-                valor   = _orc_valor(payload)
+                orc_id   = _orc_id(payload)
+                valor    = _orc_valor(payload)
                 dentista = _dentista(payload)
+                vendedor = _orc_vendedor(payload)
                 cur.execute("""
                     INSERT INTO tratamentos
                         (tenant_id, paciente_id, co_orcamento_id, tipo, dentista,
-                         valor_total, data_emissao, situacao)
-                    VALUES (%s,%s,%s,'orcamento',%s,%s,CURRENT_DATE,'emitido')
+                         vendedor, valor_total, data_emissao, situacao)
+                    VALUES (%s,%s,%s,'orcamento',%s,%s,%s,CURRENT_DATE,'emitido')
                     ON CONFLICT (tenant_id, co_orcamento_id)
                     WHERE co_orcamento_id IS NOT NULL
                     DO NOTHING
-                """, (tenant_id, paciente_id, orc_id, dentista, valor))
+                """, (tenant_id, paciente_id, orc_id, dentista, vendedor, valor))
 
                 if paciente_id:
                     cur.execute("""
