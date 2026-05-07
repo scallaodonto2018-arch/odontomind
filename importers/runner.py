@@ -23,6 +23,7 @@ from importers import pacientes as imp_pac
 from importers import orcamentos as imp_orc
 from importers import contratos as imp_con
 from importers import procedimentos as imp_proc
+from importers import gerar_oportunidades as imp_oport
 
 
 def _encontrar_arquivo(pasta: str, padrao: str) -> str | None:
@@ -101,6 +102,12 @@ def rodar(
         resultados["procedimentos"] = res
     else:
         _log("[4/4] Planilha de procedimentos não encontrada — pulando.")
+
+    # 5. Gerar oportunidades históricas
+    _log("\n[5/5] Gerando oportunidades históricas a partir dos tratamentos...")
+    res = imp_oport.gerar(tenant_id)
+    _log(f"      Criadas: {res['criadas']} de {res['total']} tratamentos")
+    resultados["oportunidades"] = res
 
     return resultados
 

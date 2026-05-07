@@ -5,6 +5,7 @@ import streamlit as st
 
 from auth import require_papel
 from importers import runner as imp_runner
+from importers import gerar_oportunidades as imp_oport
 
 
 def show():
@@ -92,13 +93,32 @@ def show():
                 st.error(f"Erro ao importar {label}: {e}")
                 resultados[chave] = {"erro_fatal": str(e)}
 
+    # Passo 5: gerar oportunidades históricas
+    with st.spinner("Gerando oportunidades históricas..."):
+        try:
+            res_oport = imp_oport.gerar(tenant_id)
+            resultados["oportunidades"] = res_oport
+        except Exception as e:
+            resultados["oportunidades"] = {"erro_fatal": str(e)}
+
     st.divider()
     st.subheader("Resultado")
 
+    labels = {
+        "pacientes": "Pacientes",
+        "orcamentos": "Orçamentos",
+        "contratos": "Contratos",
+        "procedimentos": "Procedimentos",
+        "oportunidades": "Oportunidades geradas",
+    }
     for chave, res in resultados.items():
-        label = chave.capitalize()
+        label = labels.get(chave, chave.capitalize())
         if "erro_fatal" in res:
             st.error(f"**{label}:** {res['erro_fatal']}")
+        elif chave == "oportunidades":
+            criadas = res.get("criadas", 0)
+            total = res.get("total", 0)
+            st.success(f"**{label}** — {criadas} criadas de {total} tratamentos")
         else:
             inseridos = res.get("inseridos", 0)
             atualizados = res.get("atualizados", 0)
