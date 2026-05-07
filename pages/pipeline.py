@@ -1,6 +1,6 @@
 """Página de pipeline comercial — funil de oportunidades."""
 import streamlit as st
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from auth import require_auth
 from database import get_conn
 
@@ -98,7 +98,7 @@ def _card_oportunidade(oport: dict, tenant_id: str):
         if v_orc:
             st.caption(f"Orçado: R$ {v_orc:,.2f}")
         if dt_ult:
-            dias = (datetime.now() - dt_ult).days if hasattr(dt_ult, 'timetuple') else 0
+            dias = (datetime.now(timezone.utc) - dt_ult).days if hasattr(dt_ult, 'timetuple') else 0
             if dias > 3:
                 st.caption(f"⚠️ {dias}d sem atividade")
 
