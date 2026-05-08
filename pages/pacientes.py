@@ -3,6 +3,29 @@ import streamlit as st
 from auth import require_auth
 from database import get_conn
 
+STATUS_COR = {
+    "ativo":      "green",
+    "inativo":    "red",
+    "prospect":   "yellow",
+    "reativacao": "teal",
+}
+
+OPORT_COR = {
+    "lead_novo": "blue", "contato_feito": "yellow", "agendado": "orange",
+    "compareceu": "purple", "orcamento_enviado": "indigo", "negociando": "teal",
+    "fechado_ganho": "green", "fechado_perdido": "red",
+}
+
+OPORT_LABELS = {
+    "lead_novo": "Lead Novo", "contato_feito": "Contato Feito", "agendado": "Agendado",
+    "compareceu": "Compareceu", "orcamento_enviado": "Orç. Enviado", "negociando": "Negociando",
+    "fechado_ganho": "Fechado ✓", "fechado_perdido": "Perdido",
+}
+
+
+def _badge(texto: str, cor: str = "gray") -> str:
+    return f'<span class="om-badge om-{cor}">{texto}</span>'
+
 
 def _buscar_pacientes(tenant_id: str, busca: str, status: str, captacao: str,
                       limit: int, offset: int) -> tuple[list, int]:
@@ -49,10 +72,8 @@ def _buscar_pacientes(tenant_id: str, busca: str, status: str, captacao: str,
 
 
 def _perfil_paciente(tenant_id: str, paciente_id: int):
-    """Mostra painel lateral com histórico completo do paciente."""
     with get_conn() as conn:
         with conn.cursor() as cur:
-            # Dados básicos
             cur.execute("""
                 SELECT nome, cpf, whatsapp, telefone, email,
                        data_nascimento, data_cadastro, ultima_consulta,
@@ -99,8 +120,13 @@ def _perfil_paciente(tenant_id: str, paciente_id: int):
                 with st.expander(f"Oportunidades ({len(oports)})", expanded=True):
                     for o in oports:
                         status_op, origem, crc, v_orc, v_fec, dt_ent, dt_ult, obs = o
-                        badge = _badge_status(status_op)
-                        st.markdown(f"{badge} **{status_op}** — {origem or '—'}")
+                        cor = OPORT_COR.get(status_op, "gray")
+                        label = OPORT_LABELS.get(status_op, status_op)
+                        st.markdown(
+                            f'{_badge(label, cor)}'
+                            f'&nbsp;<span style="font-size:0.8rem;color:#6B7280;">{origem or "—"}</span>',
+                            unsafe_allow_html=True,
+                        )
                         if crc:
                             st.caption(f"CRC: {crc}")
                         col_a, col_b = st.columns(2)
@@ -109,7 +135,9 @@ def _perfil_paciente(tenant_id: str, paciente_id: int):
                         if v_fec:
                             col_b.caption(f"Fechado: R$ {v_fec:,.2f}")
                         if dt_ent:
-                            st.caption(f"Entrada: {dt_ent.strftime('%d/%m/%Y') if hasattr(dt_ent,'strftime') else str(dt_ent)[:10]}")
+                            st.caption(
+                                f"Entrada: {dt_ent.strftime('%d/%m/%Y') if hasattr(dt_ent,'strftime') else str(dt_ent)[:10]}"
+                            )
                         st.divider()
 
             # Tratamentos
@@ -126,7 +154,12 @@ def _perfil_paciente(tenant_id: str, paciente_id: int):
                     for t in tratas:
                         tipo, sit, dentista, vendedor, valor, d_em, d_ap, campanha = t
                         label = "Contrato" if tipo == "contrato" else "Orçamento"
-                        st.markdown(f"**{label}** — {sit or '—'}")
+                        cor_t = "green" if tipo == "contrato" else "indigo"
+                        st.markdown(
+                            f'{_badge(label, cor_t)}'
+                            f'&nbsp;<span style="font-size:0.8rem;color:#374151;">{sit or "—"}</span>',
+                            unsafe_allow_html=True,
+                        )
                         if valor:
                             st.caption(f"R$ {valor:,.2f}")
                         if d_em:
@@ -154,22 +187,10 @@ def _perfil_paciente(tenant_id: str, paciente_id: int):
                         d, espec, nome_p, dent, val, sit = p
                         dt_str = d.strftime('%d/%m/%Y') if d else "—"
                         st.markdown(f"**{dt_str}** — {nome_p or '—'}")
-                        st.caption(f"{espec or ''} | {dent or ''} | {f'R$ {val:,.2f}' if val else ''}")
-
-
-def _badge_status(status: str) -> str:
-    cores = {
-        "lead_novo": "🔵",
-        "contato_feito": "🟡",
-        "agendado": "🟠",
-        "compareceu": "🟣",
-        "orcamento_enviado": "🔷",
-        "negociando": "🟤",
-        "fechado_ganho": "🟢",
-        "fechado_perdido": "🔴",
-        "reativacao": "⚪",
-    }
-    return cores.get(status, "⚫")
+                        st.caption(
+                            f"{espec or ''}{' | ' if espec and dent else ''}{dent or ''}"
+                            f"{' | ' if (espec or dent) and val else ''}{f'R$ {val:,.2f}' if val else ''}"
+                        )
 
 
 def show():
@@ -181,11 +202,12 @@ def show():
     # Filtros
     col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
     with col1:
-        busca = st.text_input("Buscar", placeholder="Nome, WhatsApp ou email...", label_visibility="collapsed")
+        busca = st.text_input("Buscar", placeholder="Nome, WhatsApp ou email...",
+                              label_visibility="collapsed")
     with col2:
-        status_filtro = st.selectbox("Status", ["Todos", "ativo", "inativo", "prospect"], label_visibility="collapsed")
+        status_filtro = st.selectbox("Status", ["Todos", "ativo", "inativo", "prospect"],
+                                     label_visibility="collapsed")
     with col3:
-        # Captações disponíveis
         try:
             with get_conn() as conn:
                 with conn.cursor() as cur:
@@ -204,28 +226,89 @@ def show():
         st.session_state.pac_pagina = 0
 
     offset = st.session_state.pac_pagina * por_pagina
-    pacientes, total = _buscar_pacientes(tenant_id, busca, status_filtro, captacao_filtro, por_pagina, offset)
+    lista, total = _buscar_pacientes(tenant_id, busca, status_filtro,
+                                     captacao_filtro, por_pagina, offset)
 
-    st.caption(f"{total} paciente(s) encontrado(s)")
+    st.markdown(
+        f'<div style="font-size:0.8rem;color:#9CA3AF;margin-bottom:0.5rem;">'
+        f'{total} paciente(s) encontrado(s)</div>',
+        unsafe_allow_html=True,
+    )
 
-    if not pacientes:
+    if not lista:
         st.info("Nenhum paciente encontrado. Importe as planilhas na página Importação.")
         return
 
-    # Tabela
-    for p in pacientes:
+    # Cabeçalho da lista
+    st.markdown("""
+<div style="display:grid;grid-template-columns:3fr 2fr 1fr 1fr 0.6fr;
+            gap:0.5rem;padding:0.25rem 0.75rem;
+            font-size:0.7rem;font-weight:600;color:#9CA3AF;text-transform:uppercase;
+            letter-spacing:0.06em;border-bottom:1px solid #F3F4F6;margin-bottom:0.25rem;">
+  <span>PACIENTE</span>
+  <span>CONTATO</span>
+  <span>CAPTAÇÃO</span>
+  <span>ÚLT. CONSULTA</span>
+  <span></span>
+</div>
+""", unsafe_allow_html=True)
+
+    for p in lista:
         with st.container(border=True):
-            c1, c2, c3, c4, c5 = st.columns([3, 2, 1, 1, 1])
-            c1.write(f"**{p['nome']}**")
-            c2.caption(p["whatsapp"] or p["email"] or "—")
-            c3.caption(p["captacao"] or "—")
-            ultima = p["ultima_consulta"]
-            c4.caption(
-                ultima.strftime("%d/%m/%Y") if hasattr(ultima, "strftime") else str(ultima)[:10]
-                if ultima else "—"
-            )
-            if c5.button("Ver", key=f"ver_{p['id']}"):
-                st.session_state.pac_selecionado = p["id"]
+            c1, c2, c3, c4, c5 = st.columns([3, 2, 1, 1, 0.6])
+
+            status_p = p.get("status") or "ativo"
+            cor_p    = STATUS_COR.get(status_p, "gray")
+            badge_s  = _badge(status_p.capitalize(), cor_p)
+
+            with c1:
+                n_oport = p.get("n_oport", 0)
+                n_trat  = p.get("n_trat", 0)
+                extras  = []
+                if n_oport:
+                    extras.append(f"{n_oport} oport.")
+                if n_trat:
+                    extras.append(f"{n_trat} trat.")
+                extras_html = (
+                    f'&nbsp;<span style="font-size:0.72rem;color:#9CA3AF;">'
+                    f'{" · ".join(extras)}</span>'
+                ) if extras else ""
+                st.markdown(
+                    f'<div style="padding-top:0.15rem;">'
+                    f'<span style="font-size:0.9rem;font-weight:600;color:#111827;">{p["nome"]}</span>'
+                    f'&nbsp;{badge_s}{extras_html}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            with c2:
+                contato = p["whatsapp"] or p["email"] or "—"
+                st.markdown(
+                    f'<div style="font-size:0.8rem;color:#6B7280;padding-top:0.25rem;">{contato}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            with c3:
+                capt = p.get("captacao") or "—"
+                st.markdown(
+                    f'<div style="font-size:0.8rem;color:#6B7280;padding-top:0.25rem;">{capt}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            with c4:
+                ultima = p["ultima_consulta"]
+                dt_str = (
+                    ultima.strftime("%d/%m/%Y")
+                    if hasattr(ultima, "strftime")
+                    else (str(ultima)[:10] if ultima else "—")
+                )
+                st.markdown(
+                    f'<div style="font-size:0.8rem;color:#6B7280;padding-top:0.25rem;">{dt_str}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            with c5:
+                if st.button("Ver", key=f"ver_{p['id']}", use_container_width=True):
+                    st.session_state.pac_selecionado = p["id"]
 
     # Paginação
     col_prev, col_info, col_next = st.columns([1, 2, 1])
@@ -235,8 +318,12 @@ def show():
                 st.session_state.pac_pagina -= 1
                 st.rerun()
     with col_info:
-        total_pag = (total - 1) // por_pagina + 1
-        st.caption(f"Página {st.session_state.pac_pagina + 1} de {total_pag}")
+        total_pag = max(1, (total - 1) // por_pagina + 1)
+        st.markdown(
+            f'<div style="text-align:center;font-size:0.8rem;color:#9CA3AF;padding-top:0.4rem;">'
+            f'Página {st.session_state.pac_pagina + 1} de {total_pag}</div>',
+            unsafe_allow_html=True,
+        )
     with col_next:
         if offset + por_pagina < total:
             if st.button("Próxima →"):
@@ -246,7 +333,7 @@ def show():
     # Painel lateral do paciente selecionado
     if st.session_state.get("pac_selecionado"):
         with st.sidebar:
-            if st.button("✕ Fechar"):
+            if st.button("✕ Fechar perfil"):
                 del st.session_state.pac_selecionado
                 st.rerun()
             _perfil_paciente(tenant_id, st.session_state.pac_selecionado)

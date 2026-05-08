@@ -5,24 +5,38 @@ from auth import require_auth
 from database import get_conn
 
 
-# Ordem e rótulos dos status do funil
 STATUSES = [
-    ("lead_novo",          "Lead Novo",         "🔵"),
-    ("contato_feito",      "Contato Feito",      "🟡"),
-    ("agendado",           "Agendado",           "🟠"),
-    ("compareceu",         "Compareceu",         "🟣"),
-    ("orcamento_enviado",  "Orçamento Enviado",  "🔷"),
-    ("negociando",         "Negociando",         "🟤"),
-    ("fechado_ganho",      "Fechado Ganho",      "🟢"),
-    ("fechado_perdido",    "Fechado Perdido",    "🔴"),
+    ("lead_novo",          "Lead Novo",         "om-blue"),
+    ("contato_feito",      "Contato Feito",      "om-yellow"),
+    ("agendado",           "Agendado",           "om-orange"),
+    ("compareceu",         "Compareceu",         "om-purple"),
+    ("orcamento_enviado",  "Orçamento Enviado",  "om-indigo"),
+    ("negociando",         "Negociando",         "om-teal"),
+    ("fechado_ganho",      "Fechado Ganho",      "om-green"),
+    ("fechado_perdido",    "Fechado Perdido",    "om-red"),
 ]
-STATUS_KEYS = [s[0] for s in STATUSES]
+STATUS_KEYS   = [s[0] for s in STATUSES]
 STATUS_LABELS = {s[0]: s[1] for s in STATUSES}
-STATUS_ICONS = {s[0]: s[2] for s in STATUSES}
+STATUS_COR    = {s[0]: s[2] for s in STATUSES}
+
+TAB_ICONS = {
+    "lead_novo": "🔵", "contato_feito": "🟡", "agendado": "🟠",
+    "compareceu": "🟣", "orcamento_enviado": "🔷", "negociando": "🟤",
+    "fechado_ganho": "🟢", "fechado_perdido": "🔴",
+}
+
+ORIGEM_LABEL = {
+    "meta_ads": "Meta Ads", "google_ads": "Google", "indicacao": "Indicação",
+    "organico": "Orgânico", "reativacao": "Reativação", "whatsapp_ativo": "WhatsApp",
+    "co_cadastro": "CO", "outro": "Outro",
+}
+
+
+def _badge(texto: str, cor: str = "gray") -> str:
+    return f'<span class="om-badge om-{cor}">{texto}</span>'
 
 
 def _carregar_pipeline(tenant_id: str, periodo_dias: int, origem: str) -> dict:
-    """Retorna oportunidades agrupadas por status."""
     data_ini = (datetime.now() - timedelta(days=periodo_dias)).date()
     conditions = ["o.tenant_id=%s", "o.data_entrada >= %s"]
     params = [tenant_id, data_ini]
@@ -50,22 +64,20 @@ def _carregar_pipeline(tenant_id: str, periodo_dias: int, origem: str) -> dict:
 
     grupos = {k: [] for k in STATUS_KEYS}
     for r in rows:
-        st = r["status"]
-        if st in grupos:
-            grupos[st].append(r)
+        s = r["status"]
+        if s in grupos:
+            grupos[s].append(r)
         else:
-            grupos.setdefault(st, []).append(r)
+            grupos.setdefault(s, []).append(r)
     return grupos
 
 
 def _metricas_funil(tenant_id: str) -> dict:
-    """Métricas do mês atual — valores dos contratos (Total Líquido)."""
     with get_conn() as conn:
         with conn.cursor() as cur:
             hoje = datetime.now().date()
             inicio_mes = hoje.replace(day=1)
 
-            # Oportunidades ativas e perdidas (funil)
             cur.execute("""
                 SELECT
                     COUNT(*) FILTER (WHERE status NOT IN ('fechado_ganho','fechado_perdido')) as ativos,
@@ -75,7 +87,6 @@ def _metricas_funil(tenant_id: str) -> dict:
             """, (tenant_id, inicio_mes))
             r_oport = cur.fetchone()
 
-            # Contratos do mês — Total Líquido e ticket médio
             cur.execute("""
                 SELECT
                     COUNT(*) as contratos,
@@ -97,45 +108,81 @@ def _metricas_funil(tenant_id: str) -> dict:
     }
 
 
+def _fmt_brl(valor) -> str:
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def _card_oportunidade(oport: dict, tenant_id: str):
-    """Renderiza card de uma oportunidade."""
-    icon = STATUS_ICONS.get(oport["status"], "⚫")
-    nome = oport.get("paciente") or "Sem nome"
+    nome    = oport.get("paciente") or "Sem nome"
     whatsapp = oport.get("whatsapp") or ""
-    origem = oport.get("origem") or "—"
-    v_orc = oport.get("v_orc")
-    dt_ult = oport.get("dt_ult")
+    origem  = oport.get("origem") or ""
+    v_orc   = oport.get("v_orc")
+    dt_ult  = oport.get("dt_ult")
+    status  = oport.get("status", "lead_novo")
+
+    cor            = STATUS_COR.get(status, "om-gray").replace("om-", "")
+    origem_label   = ORIGEM_LABEL.get(origem, origem) if origem else ""
 
     with st.container(border=True):
-        st.markdown(f"**{nome}**")
-        if whatsapp:
-            st.caption(f"📱 {whatsapp[:2]} {whatsapp[2:4]} {whatsapp[4:]}" if len(whatsapp) >= 11 else whatsapp)
-        st.caption(f"Origem: {origem}")
-        if v_orc:
-            st.caption(f"Orçado: R$ {v_orc:,.2f}")
-        if dt_ult:
-            dias = (datetime.now(timezone.utc) - dt_ult).days if hasattr(dt_ult, 'timetuple') else 0
-            if dias > 3:
-                st.caption(f"⚠️ {dias}d sem atividade")
+        col_info, col_action = st.columns([3, 2])
 
-        novo_status = st.selectbox(
-            "Mover para",
-            STATUS_KEYS,
-            index=STATUS_KEYS.index(oport["status"]) if oport["status"] in STATUS_KEYS else 0,
-            format_func=lambda k: STATUS_LABELS.get(k, k),
-            key=f"mv_{oport['id']}",
-            label_visibility="collapsed",
-        )
+        with col_info:
+            badge_status = _badge(STATUS_LABELS.get(status, status), cor)
+            st.markdown(
+                f'<div style="margin-bottom:0.25rem;">'
+                f'<span style="font-size:0.925rem;font-weight:600;color:#111827;">{nome}</span>'
+                f'&nbsp;&nbsp;{badge_status}</div>',
+                unsafe_allow_html=True,
+            )
 
-        if novo_status != oport["status"]:
-            with get_conn() as conn:
-                with conn.cursor() as cur:
-                    cur.execute("""
-                        UPDATE oportunidades
-                        SET status=%s, data_ultima_atividade=NOW(), atualizado_em=NOW()
-                        WHERE id=%s AND tenant_id=%s
-                    """, (novo_status, oport["id"], tenant_id))
-            st.rerun()
+            meta = []
+            if whatsapp:
+                tel = f"{whatsapp[:2]} {whatsapp[2:4]} {whatsapp[4:]}" if len(whatsapp) >= 11 else whatsapp
+                meta.append(f"📱 {tel}")
+            if origem_label:
+                meta.append(f"via {origem_label}")
+            if meta:
+                st.markdown(
+                    f'<div style="font-size:0.78rem;color:#6B7280;">{" · ".join(meta)}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            if v_orc:
+                st.markdown(
+                    f'<div style="font-size:0.875rem;font-weight:600;color:#059669;margin-top:0.2rem;">'
+                    f'{_fmt_brl(v_orc)}</div>',
+                    unsafe_allow_html=True,
+                )
+
+            if dt_ult:
+                try:
+                    dias = (datetime.now(timezone.utc) - dt_ult).days if hasattr(dt_ult, "timetuple") else 0
+                    if dias > 3:
+                        st.markdown(
+                            f'<div style="margin-top:0.3rem;">{_badge(f"⚠ {dias}d inativo", "red")}</div>',
+                            unsafe_allow_html=True,
+                        )
+                except Exception:
+                    pass
+
+        with col_action:
+            novo_status = st.selectbox(
+                "Mover",
+                STATUS_KEYS,
+                index=STATUS_KEYS.index(status) if status in STATUS_KEYS else 0,
+                format_func=lambda k: STATUS_LABELS.get(k, k),
+                key=f"mv_{oport['id']}",
+                label_visibility="collapsed",
+            )
+            if novo_status != status:
+                with get_conn() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("""
+                            UPDATE oportunidades
+                            SET status=%s, data_ultima_atividade=NOW(), atualizado_em=NOW()
+                            WHERE id=%s AND tenant_id=%s
+                        """, (novo_status, oport["id"], tenant_id))
+                st.rerun()
 
 
 def show():
@@ -147,7 +194,8 @@ def show():
     # Controles
     col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        periodo = st.selectbox("Período", [30, 60, 90, 180, 365], format_func=lambda x: f"Últimos {x} dias")
+        periodo = st.selectbox("Período", [30, 60, 90, 180, 365],
+                               format_func=lambda x: f"Últimos {x} dias")
     with col2:
         try:
             with get_conn() as conn:
@@ -161,21 +209,22 @@ def show():
             origens = ["Todos"]
         origem_filtro = st.selectbox("Origem", origens)
     with col3:
-        if st.button("Nova oportunidade"):
+        if st.button("+ Nova oportunidade", type="primary"):
             st.session_state.nova_oport = True
 
     # Nova oportunidade
     if st.session_state.get("nova_oport"):
         with st.expander("Criar nova oportunidade", expanded=True):
             with st.form("form_nova_oport"):
-                nome_pac = st.text_input("Nome do paciente")
-                whatsapp = st.text_input("WhatsApp")
-                origem_nova = st.selectbox("Origem", ["meta_ads","google_ads","indicacao","organico",
-                                                       "reativacao","whatsapp_ativo","co_cadastro","outro"])
-                crc = st.text_input("CRC Responsável")
-                obs = st.text_area("Observações")
+                col_a, col_b = st.columns(2)
+                nome_pac     = col_a.text_input("Nome do paciente")
+                whatsapp     = col_b.text_input("WhatsApp")
+                origem_nova  = col_a.selectbox("Origem", ["meta_ads","google_ads","indicacao","organico",
+                                                           "reativacao","whatsapp_ativo","co_cadastro","outro"])
+                crc          = col_b.text_input("CRC Responsável")
+                obs          = st.text_area("Observações")
                 col_s, col_c = st.columns(2)
-                salvar = col_s.form_submit_button("Salvar", type="primary")
+                salvar   = col_s.form_submit_button("Salvar", type="primary")
                 cancelar = col_c.form_submit_button("Cancelar")
 
             if cancelar:
@@ -185,7 +234,6 @@ def show():
             if salvar and nome_pac:
                 with get_conn() as conn:
                     with conn.cursor() as cur:
-                        # Tenta encontrar paciente por nome
                         like = nome_pac.strip()[:30] + "%"
                         cur.execute(
                             "SELECT id FROM pacientes WHERE tenant_id=%s AND nome ILIKE %s LIMIT 1",
@@ -195,7 +243,6 @@ def show():
                         if row:
                             paciente_id = row[0]
                         else:
-                            # Cria paciente novo
                             from importers.utils import normalizar_telefone
                             tel = normalizar_telefone(whatsapp)
                             cur.execute("""
@@ -217,31 +264,30 @@ def show():
     # Métricas do mês
     m = _metricas_funil(tenant_id)
     c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Em andamento", m["ativos"])
-    c2.metric("Contratos (mês)", m["contratos"])
-    c3.metric("Perdidos (mês)", m["perdidos"])
-    c4.metric("Total Líquido (mês)", f"R$ {m['total_liquido']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    c5.metric("Ticket Médio", f"R$ {m['ticket_medio']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    c1.metric("Em andamento",        m["ativos"])
+    c2.metric("Contratos (mês)",      m["contratos"])
+    c3.metric("Perdidos (mês)",       m["perdidos"])
+    c4.metric("Total Líquido (mês)",  _fmt_brl(m["total_liquido"]))
+    c5.metric("Ticket Médio",         _fmt_brl(m["ticket_medio"]))
 
     st.divider()
 
-    # Funil
+    # Funil em abas
     grupos = _carregar_pipeline(tenant_id, periodo, origem_filtro)
 
-    # Exibe apenas status com registros + os status principais sempre visíveis
-    status_visiveis = [
-        ("lead_novo", "agendado", "compareceu", "negociando"),
-        ("fechado_ganho", "fechado_perdido"),
-    ]
-
-    # View por colunas (todos os status)
-    st.subheader("Funil")
-    tabs = st.tabs([f"{STATUS_ICONS[k]} {STATUS_LABELS[k]} ({len(grupos.get(k,[]))})" for k in STATUS_KEYS])
-    for tab, (key, label, icon) in zip(tabs, STATUSES):
+    tabs = st.tabs([
+        f"{TAB_ICONS[k]} {STATUS_LABELS[k]} ({len(grupos.get(k, []))})"
+        for k in STATUS_KEYS
+    ])
+    for tab, (key, label, _) in zip(tabs, STATUSES):
         with tab:
             oports = grupos.get(key, [])
             if not oports:
-                st.caption("Nenhuma oportunidade neste estágio.")
+                st.markdown(
+                    '<div style="color:#9CA3AF;font-size:0.85rem;padding:1rem 0;">'
+                    'Nenhuma oportunidade neste estágio.</div>',
+                    unsafe_allow_html=True,
+                )
                 continue
             for oport in oports:
                 _card_oportunidade(oport, tenant_id)

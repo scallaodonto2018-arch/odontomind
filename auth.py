@@ -72,29 +72,37 @@ def criar_usuario(tenant_id: str, username: str, nome: str, senha: str,
 # ----------------------------------------------------------------
 
 def login_page():
-    """Renderiza a página de login. Retorna True se autenticado."""
+    """Renderiza a página de login."""
     if st.session_state.get("usuario"):
         return True
 
-    st.markdown("## OdontoMind")
-    st.markdown("##### O cérebro da odontologia")
-    st.divider()
+    _, col, _ = st.columns([1, 1, 1])
+    with col:
+        st.markdown("""
+<div style="text-align:center;padding:3rem 0 2rem;">
+  <div style="font-size:2.5rem;margin-bottom:0.75rem;">🦷</div>
+  <div style="font-size:1.75rem;font-weight:700;color:#1E40AF;letter-spacing:-0.02em;">OdontoMind</div>
+  <div style="color:#6B7280;font-size:0.9rem;margin-top:0.3rem;">O cérebro da odontologia</div>
+</div>
+""", unsafe_allow_html=True)
 
-    with st.form("login_form"):
-        usuario = st.text_input("Usuário")
-        senha = st.text_input("Senha", type="password")
-        entrar = st.form_submit_button("Entrar", type="primary", use_container_width=True)
+        with st.form("login_form"):
+            usuario = st.text_input("Usuário")
+            senha = st.text_input("Senha", type="password")
+            entrar = st.form_submit_button("Entrar", type="primary", use_container_width=True)
 
     if entrar:
         if not usuario or not senha:
-            st.error("Preencha usuário e senha.")
+            with col:
+                st.error("Preencha usuário e senha.")
             return False
         dados = verificar_login(usuario, senha)
         if dados:
             st.session_state.usuario = dados
             st.rerun()
         else:
-            st.error("Usuário ou senha inválidos.")
+            with col:
+                st.error("Usuário ou senha inválidos.")
 
     return False
 
