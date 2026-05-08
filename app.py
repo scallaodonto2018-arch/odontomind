@@ -29,47 +29,77 @@ def _injetar_css():
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
 }
 
-/* ── Background ─────────────────────── */
+/* ── Background: branco puro ─────────── */
 .stApp, [data-testid="stMain"] {
-    background-color: #F9FAFB;
+    background-color: #FFFFFF;
 }
 [data-testid="stMain"] > div { padding-top: 1.25rem; }
 
-/* ── Sidebar ─────────────────────────── */
+/* ── Sidebar escura (estilo CO) ──────── */
 [data-testid="stSidebar"] {
-    background-color: #FFFFFF;
-    border-right: 1px solid #E5E7EB;
+    background-color: #1B1F3A;
+    border-right: none;
 }
 [data-testid="stSidebar"] > div:first-child { padding-top: 0; }
 
-/* ── Nav radio ───────────────────────── */
+/* Todos os textos do sidebar em claro */
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] div,
+[data-testid="stSidebar"] label {
+    color: #CBD5E1 !important;
+}
+
+/* ── Nav radio no sidebar escuro ─────── */
 [data-testid="stSidebar"] [data-testid="stRadio"] > div { gap: 0.125rem !important; }
 [data-testid="stSidebar"] [data-testid="stRadio"] label {
     padding: 0.5rem 0.75rem !important;
     border-radius: 0.5rem !important;
     cursor: pointer;
-    color: #374151 !important;
+    color: #94A3B8 !important;
     font-size: 0.875rem !important;
     font-weight: 500 !important;
     transition: background-color 0.12s;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
-    background-color: #F3F4F6 !important;
+    background-color: rgba(255,255,255,0.08) !important;
+    color: #E2E8F0 !important;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label[data-checked="true"],
 [data-testid="stSidebar"] [data-testid="stRadio"] label[aria-checked="true"] {
-    background-color: #DBEAFE !important;
-    color: #1E40AF !important;
+    background-color: rgba(96,165,250,0.2) !important;
+    color: #FFFFFF !important;
     font-weight: 600 !important;
+}
+
+/* Esconde o ponto/radio nativo */
+[data-testid="stSidebar"] [data-testid="stRadio"] [data-testid="stMarkdownContainer"] { display: none !important; }
+[data-testid="stSidebar"] [data-testid="stRadio"] input[type="radio"] { display: none !important; }
+
+/* Botão Sair no sidebar */
+[data-testid="stSidebar"] button {
+    background-color: rgba(255,255,255,0.08) !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    color: #94A3B8 !important;
+    border-radius: 0.5rem !important;
+}
+[data-testid="stSidebar"] button:hover {
+    background-color: rgba(255,255,255,0.15) !important;
+    color: #FFFFFF !important;
+}
+
+/* ── Divider no sidebar ───────────────── */
+[data-testid="stSidebar"] hr {
+    border-color: rgba(255,255,255,0.1) !important;
 }
 
 /* ── Metrics ──────────────────────────── */
 [data-testid="stMetric"] {
     background: #FFFFFF;
-    border: 1px solid #E5E7EB !important;
+    border: 1px solid #D1D5DB !important;
     border-radius: 0.75rem;
     padding: 1rem 1.25rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 [data-testid="stMetricLabel"] > div {
     font-size: 0.7rem !important;
@@ -87,14 +117,14 @@ def _injetar_css():
 /* ── Cards / Bordered containers ──────── */
 [data-testid="stVerticalBlockBorderWrapper"] {
     background-color: #FFFFFF !important;
-    border: 1px solid #E5E7EB !important;
+    border: 1px solid #D1D5DB !important;
     border-radius: 0.75rem !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
 }
 
 /* ── Tabs ─────────────────────────────── */
 .stTabs [data-baseweb="tab-list"] {
-    background-color: #F3F4F6;
+    background-color: #F1F5F9;
     border-radius: 0.625rem;
     padding: 0.2rem;
     gap: 0.1rem;
@@ -106,69 +136,71 @@ def _injetar_css():
     border: none !important;
     font-size: 0.8125rem !important;
     font-weight: 500 !important;
-    color: #6B7280 !important;
+    color: #64748B !important;
     padding: 0.35rem 0.85rem !important;
 }
 .stTabs [aria-selected="true"] {
     background-color: #FFFFFF !important;
     color: #1E40AF !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12) !important;
     font-weight: 600 !important;
 }
 
 /* ── Buttons ──────────────────────────── */
 button[kind="primary"] {
-    background-color: #1E40AF !important;
-    border-color: #1E40AF !important;
+    background-color: #1D4ED8 !important;
+    border-color: #1D4ED8 !important;
     border-radius: 0.5rem !important;
     font-size: 0.875rem !important;
     font-weight: 600 !important;
 }
 button[kind="primary"]:hover {
-    background-color: #1D3D99 !important;
-    border-color: #1D3D99 !important;
+    background-color: #1E40AF !important;
+    border-color: #1E40AF !important;
 }
 button[kind="secondary"], button[kind=""] {
     border-radius: 0.5rem !important;
     font-size: 0.875rem !important;
     font-weight: 500 !important;
+    border-color: #D1D5DB !important;
+    color: #374151 !important;
 }
 
 /* ── Expanders ────────────────────────── */
 [data-testid="stExpander"] {
-    border: 1px solid #E5E7EB !important;
+    border: 1px solid #D1D5DB !important;
     border-radius: 0.75rem !important;
     background-color: #FFFFFF !important;
 }
 
 /* ── Headings ─────────────────────────── */
-h1 { font-size: 1.45rem !important; font-weight: 700 !important; color: #111827 !important; margin-bottom: 0.75rem !important; }
-h2 { font-size: 1.1rem !important; font-weight: 600 !important; color: #1F2937 !important; }
-h3 { font-size: 0.975rem !important; font-weight: 600 !important; color: #374151 !important; }
+h1 { font-size: 1.45rem !important; font-weight: 700 !important; color: #0F172A !important; margin-bottom: 0.75rem !important; }
+h2 { font-size: 1.1rem !important; font-weight: 600 !important; color: #1E293B !important; }
+h3 { font-size: 0.975rem !important; font-weight: 600 !important; color: #334155 !important; }
 
 /* ── Inputs ───────────────────────────── */
 .stTextInput > div > div > input,
 .stSelectbox > div > div {
     border-radius: 0.5rem !important;
-    border-color: #E5E7EB !important;
+    border-color: #D1D5DB !important;
     font-size: 0.875rem !important;
 }
 
 /* ── Caption ──────────────────────────── */
 [data-testid="stCaptionContainer"] p {
-    color: #6B7280 !important;
+    color: #64748B !important;
     font-size: 0.8rem !important;
 }
 
 /* ── Alerts ───────────────────────────── */
 [data-testid="stAlert"] { border-radius: 0.625rem !important; }
 
-/* ── Divider ──────────────────────────── */
-hr { border-color: #F3F4F6 !important; margin: 0.5rem 0 !important; }
+/* ── Divider (conteúdo principal) ──────── */
+hr { border-color: #E2E8F0 !important; margin: 0.5rem 0 !important; }
 
 /* ──────────────────────────────────────
    Badge / pill system
-   Usage: <span class="om-badge om-green">Ativo</span>
+   Uso: <span class="om-badge om-green">Texto</span>
    ────────────────────────────────────── */
 .om-badge {
     display: inline-flex;
@@ -182,14 +214,14 @@ hr { border-color: #F3F4F6 !important; margin: 0.5rem 0 !important; }
     vertical-align: middle;
 }
 .om-blue   { background: #DBEAFE; color: #1E40AF; }
-.om-yellow { background: #FEF3C7; color: #92400E; }
+.om-yellow { background: #FEF3C7; color: #854D0E; }
 .om-orange { background: #FFEDD5; color: #9A3412; }
 .om-purple { background: #EDE9FE; color: #5B21B6; }
 .om-indigo { background: #E0E7FF; color: #3730A3; }
 .om-teal   { background: #CCFBF1; color: #134E4A; }
-.om-green  { background: #D1FAE5; color: #065F46; }
+.om-green  { background: #DCFCE7; color: #166534; }
 .om-red    { background: #FEE2E2; color: #991B1B; }
-.om-gray   { background: #F3F4F6; color: #374151; }
+.om-gray   { background: #F1F5F9; color: #475569; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -206,14 +238,14 @@ def main():
     with st.sidebar:
         st.markdown(f"""
 <div style="padding:1.25rem 0.75rem 0.75rem;">
-  <div style="font-size:1.15rem;font-weight:700;color:#1E40AF;letter-spacing:-0.01em;">
+  <div style="font-size:1.15rem;font-weight:700;color:#FFFFFF;letter-spacing:-0.01em;">
     🦷 OdontoMind
   </div>
-  <div style="font-size:0.75rem;color:#9CA3AF;margin-top:0.15rem;">
+  <div style="font-size:0.75rem;color:#64748B;margin-top:0.15rem;">
     {usuario.get("tenant_nome", "")}
   </div>
 </div>
-<hr style="margin:0 0 0.75rem;border-color:#F3F4F6;">
+<hr style="margin:0 0 0.75rem;border-color:rgba(255,255,255,0.1);">
 """, unsafe_allow_html=True)
 
         opcoes_raw = ["Pipeline", "Pacientes", "Importação", "Configurações"]
@@ -229,8 +261,8 @@ def main():
         with c1:
             st.markdown(f"""
 <div style="font-size:0.8rem;padding:0.25rem 0;">
-  <div style="font-weight:600;color:#374151;">{usuario["nome"]}</div>
-  <div style="color:#9CA3AF;font-size:0.72rem;">{usuario.get("funcao", "")}</div>
+  <div style="font-weight:600;color:#E2E8F0;">{usuario["nome"]}</div>
+  <div style="color:#64748B;font-size:0.72rem;">{usuario.get("funcao", "")}</div>
 </div>
 """, unsafe_allow_html=True)
         with c2:

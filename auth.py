@@ -81,8 +81,8 @@ def login_page():
         st.markdown("""
 <div style="text-align:center;padding:3rem 0 2rem;">
   <div style="font-size:2.5rem;margin-bottom:0.75rem;">🦷</div>
-  <div style="font-size:1.75rem;font-weight:700;color:#1E40AF;letter-spacing:-0.02em;">OdontoMind</div>
-  <div style="color:#6B7280;font-size:0.9rem;margin-top:0.3rem;">O cérebro da odontologia</div>
+  <div style="font-size:1.75rem;font-weight:700;color:#1D4ED8;letter-spacing:-0.02em;">OdontoMind</div>
+  <div style="color:#64748B;font-size:0.9rem;margin-top:0.3rem;">O cérebro da odontologia</div>
 </div>
 """, unsafe_allow_html=True)
 
