@@ -8,5 +8,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 RUN chmod +x start.sh
 
-# FastAPI na $PORT (webhooks + proxy Streamlit) | Streamlit na 8501 (interno)
+# Streamlit na $PORT (domínio principal) | FastAPI na 8000 (segundo domínio)
 CMD ["./start.sh"]
